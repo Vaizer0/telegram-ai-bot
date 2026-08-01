@@ -22,8 +22,8 @@ telegram-ai-bot/
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # template for your secrets
 ├── .gitignore
-├── railway.json              # Railway deployment config
-├── render.yaml               # Render deployment blueprint (fallback)
+├── render.yaml               # Render deployment blueprint (free, preferred)
+├── koyeb.yaml                # Koyeb deployment blueprint (free, fallback)
 └── .github/workflows/ci.yml  # GitHub Actions CI (syntax + import check)
 ```
 
@@ -107,35 +107,53 @@ Webhook-only variables: `WEBHOOK_URL`, `WEBHOOK_SECRET`, `WEBHOOK_PORT`.
 > `.env` (local) or in your hosting provider's environment variables — never
 > in code, commits, or logs. `.env` is ignored by Git.
 
-## Deploy to the cloud (runs 24/7, no phone needed)
+## Deploy to the cloud (runs 24/7, no phone needed) — free only
 
-The bot uses polling, so it does not need a public URL. Any platform that can
-run a long-running Python process works. **Railway is recommended** because its
-free tier keeps services running.
+The bot uses polling, so it does not need a public URL, but free hosting tiers
+often sleep idle services. The bot therefore exposes a tiny keep-alive HTTP
+endpoint on `$PORT` (see the `start_keepalive_server()` function in `bot.py`).
+Pinging that endpoint with a free uptime monitor keeps the service awake.
 
-### Railway (recommended)
+**Recommended order (all free, no credit card required):**
+
+1. **Render** (free web service + UptimeRobot keep-alive)
+2. **Koyeb** (free web service)
+3. **Oracle Cloud Always Free** VPS (most reliable, but more setup and needs
+   card verification at signup)
+
+### 1. Render (free)
 
 1. Push this repository to GitHub (see below).
-2. Sign up at https://railway.app and create a new project.
-3. Choose **Deploy from GitHub repo** and select this repository
-   (Railway auto-deploys on every push to `main`).
-4. Add the environment variables in the **Variables** tab:
-   `TELEGRAM_BOT_TOKEN`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` (same values
-   as in `.env`).
-5. The included `railway.json` starts `python bot.py`, disables the HTTP
-   healthcheck (the bot exposes no web server), and restarts on failure.
+2. Sign up at https://render.com and choose **New → Web Service**.
+3. Connect the `Vaizer0/telegram-ai-bot` repository.
+4. Render uses the included `render.yaml` blueprint automatically:
+   - Build: `pip install -r requirements.txt`
+   - Start: `python bot.py`
+   - Health check: `GET /ping`
+5. Add the environment variables:
+   `TELEGRAM_BOT_TOKEN` (your real token), `AI_BASE_URL`,
+   `AI_API_KEY`, `AI_MODEL` (same values as in `.env`).
+6. **Keep it awake:** create a free monitor at https://uptimerobot.com hitting
+   `https://<your-app>.onrender.com/ping` every 5 minutes. Without this,
+   Render's free tier sleeps the service after 15 minutes.
 
-### Render (fallback)
+> Note: Render's free tier does **not** require a credit card, but it sleeps
+> after 15 min of inactivity — the UptimeRobot ping is what keeps it awake.
+
+### 2. Koyeb (free)
 
 1. Push the repository to GitHub.
-2. New **Background Worker** service, connect the repo.
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `python bot.py`
-5. Add the same environment variables.
-6. Use the included `render.yaml` as a blueprint for reproducibility.
+2. Sign up at https://koyeb.com and choose **Create Service → GitHub**.
+3. Connect `Vaizer0/telegram-ai-bot`; the included `koyeb.yaml` configures the
+   build/run commands automatically.
+4. Add `TELEGRAM_BOT_TOKEN` in the Koyeb dashboard (never in the repo).
+5. Deploy. Koyeb gives you one free web service (512 MB RAM / 0.1 vCPU).
 
-> Note: Render free instances may pause after inactivity; Railway keeps
-> always-on services and is the better fit for a 24/7 bot.
+### 3. Oracle Cloud Always Free (VPS)
+
+Most reliable 24/7 option (a real always-free VM), but signup requires card
+verification and provisioning an `Always Free` ARM instance is sometimes
+capacity-limited. Not needed if Render + UptimeRobot or Koyeb work for you.
 
 ## Continuous integration
 
@@ -153,7 +171,7 @@ git remote add origin <your-repo-url>
 git push -u origin main
 ```
 
-Then follow the Railway/Render steps above. The bot keeps working even if your
+Then follow the Render/Koyeb steps above. The bot keeps working even if your
 phone is off, because it runs on the cloud host.
 
 ## Switching to webhook mode

@@ -24,6 +24,8 @@ Requires Python 3.10+.
 import asyncio
 import logging
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import httpx
 from dotenv import load_dotenv
@@ -226,6 +228,34 @@ def _split_text(text: str, limit: int) -> list[str]:
 # 5. Application setup and entry point
 # ---------------------------------------------------------------------------
 
+def _keepalive_handler(logger: logging.Logger):
+    """Build a minimal HTTP handler that answers every request with 200 OK."""
+    class _HealthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, *args):
+            logger.debug("keepalive: %s", args)
+    return _HealthHandler
+
+
+def start_keepalive_server() -> None:
+    """Serve a tiny HTTP endpoint on $PORT to keep free hosts awake.
+
+    Free tiers (e.g. Render) spin services down after minutes of inactivity.
+    A polling bot never receives inbound requests, so it would go to sleep.
+    This endpoint answers with 200 OK so a free uptime monitor (e.g.
+    UptimeRobot) pinging `/ping` every few minutes keeps the service alive.
+    Only activated when the host injects a $PORT (i.e. in the cloud).
+    """
+    port = int(os.getenv("PORT", "8000"))
+    server = HTTPServer(("0.0.0.0", port), _keepalive_handler(logger))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    logger.info("Keep-alive HTTP server listening on port %s", port)
+
 def build_application() -> Application:
     """Create the Telegram application and register every handler."""
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -267,6 +297,11 @@ def run_webhook(application: Application) -> None:
 
 def main() -> None:
     """Entry point: pick the run mode from the BOT_MODE variable."""
+    # On cloud hosts a $PORT is injected; expose a keep-alive endpoint so the
+    # free tier does not put the polling bot to sleep.
+    if os.getenv("PORT"):
+        start_keepalive_server()
+
     application = build_application()
 
     if BOT_MODE == "webhook":

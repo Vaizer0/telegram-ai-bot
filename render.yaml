@@ -1,10 +1,13 @@
 services:
-  - type: worker
+  - type: web
     name: telegram-ai-bot
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
+    # The bot exposes a tiny HTTP endpoint on $PORT (see bot.py keep-alive
+    # server) so Render's health check passes and the free tier stays awake.
+    healthCheckPath: /ping
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false

@@ -1,0 +1,19 @@
+# Koyeb deployment blueprint (free tier: 1 free web service, no credit card
+# required for the free instance). Set TELEGRAM_BOT_TOKEN in the Koyeb
+# dashboard after connecting the repo - never commit the real token.
+name: telegram-ai-bot
+service:
+  name: telegram-ai-bot
+  source:
+    github:
+      repository: Vaizer0/telegram-ai-bot
+      branch: main
+      buildCommand: pip install -r requirements.txt
+      runCommand: python bot.py
+  envs:
+    - name: AI_BASE_URL
+      value: https://opencode.ai/zen/v1
+    - name: AI_API_KEY
+      value: public
+    - name: AI_MODEL
+      value: big-pickle
