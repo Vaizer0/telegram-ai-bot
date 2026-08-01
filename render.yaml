@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: telegram-ai-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: AI_BASE_URL
+        value: https://opencode.ai/zen/v1
+      - key: AI_API_KEY
+        value: public
+      - key: AI_MODEL
+        value: big-pickle
